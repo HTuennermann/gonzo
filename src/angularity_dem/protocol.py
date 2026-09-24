@@ -18,6 +18,7 @@ from .engine import (
     dem_step,
     fabric_aniso,
     particle_metrics,
+    run_block,
 )
 from .geometry import polygon_area, polygon_inertia, regular_polygon
 
@@ -193,6 +194,40 @@ class _Runner:
         K = sysd["vloc"].shape[1]
         self.buf1 = np.empty((2 * K + 8, 2))
         self.buf2 = np.empty((2 * K + 8, 2))
+        # xl, xr, yt, s_l, s_r, s_lid
+        self.wallstate = np.array([0.0, P.width, 1e18, 0.0, 0.0, 0.0])
+
+    def sync_walls(self):
+        ws = self.wallstate
+        self.xl, self.xr, self.yt = ws[0], ws[1], ws[2]
+        self.s_l, self.s_r, self.s_lid = ws[3], ws[4], ws[5]
+
+    def set_walls(self, xl, xr, yt, reset_stress=True):
+        ws = self.wallstate
+        ws[0], ws[1], ws[2] = xl, xr, yt
+        if reset_stress:
+            ws[3] = ws[4] = ws[5] = 0.0
+        self.sync_walls()
+
+    def block(self, k, mode, mu, grav, want_metrics=0):
+        """Run k steps with the control law (mode 0/1/2) compiled in."""
+        P = self.P
+        s = self.s
+        ws = self.wallstate
+        run_block(
+            s["pos"], s["vel"], s["th"], s["om"], s["frc"], s["trq"],
+            s["vloc"], s["nverts"], s["wverts"], s["mass"], s["inert"], s["rad"],
+            ws,
+            mu, P.Y, P.gamma, P.xi_t, P.dt, grav, P.sigma_c,
+            P.servo_v, P.servo_gain, 1.0 / P.smooth_tau,
+            P.v_y, P.width, mode, k,
+            s["hist_part"], s["hist_ft"], s["hist_stp"], self.step,
+            s["ccount"], want_metrics,
+            self.m_ang, self.m_fn, self.m_ft, self.m_count,
+            self.head, self.nxt, self.buf1, self.buf2,
+        )
+        self.step += k
+        self.sync_walls()
 
     def step_once(self, mu, grav, want_metrics=0):
         fl, fr, flid = dem_step(
@@ -276,17 +311,16 @@ def run_simulation(P: Params, verbose: bool = True) -> dict:
 
     R = _Runner(P, sysd)
     log = _Log(P)
+    blk = P.log_every
 
     # ---- phase 1: deposition (frictionless, gravity, open top) ----
     settled = False
     while R.step * P.dt < P.settle_max:
-        R.step_once(0.0, 9.81)
-        if R.step % 2000 == 0:
-            if R.step * P.dt > P.settle_time:
-                vmax = float(np.max(np.abs(sysd["vel"])))
-                if vmax < 0.02:
-                    settled = True
-                    break
+        R.block(blk, mode=0, mu=0.0, grav=9.81)
+        if R.step % 2000 == 0 and R.step * P.dt > P.settle_time:
+            if float(np.max(np.abs(sysd["vel"]))) < 0.02:
+                settled = True
+                break
     if verbose:
         print(f"  deposition done t={R.step*P.dt:.3f} s settled={settled}")
 
@@ -299,18 +333,14 @@ def run_simulation(P: Params, verbose: bool = True) -> dict:
         _rebuild_after_trim(sysd, keep, P.rho)
         if verbose:
             print(f"  trimmed to h={h_cut:.4f} m -> {sysd['pos'].shape[0]} particles")
-    R.xr = P.width
-    R.yt = h_cut
-    R.s_l = R.s_r = R.s_lid = 0.0
+    R.set_walls(0.0, P.width, h_cut)
 
     # ---- phase 2: isotropic consolidation ----
     t0 = R.step * P.dt
     reached_at = None
     hold_until = None
     while R.step * P.dt < t0 + 3.0:
-        want = int(reached_at is not None and R.step % log.log_every == 0)
-        R.step_once(P.mu, 0.0, want_metrics=want)
-        R.servo_walls()
+        R.block(blk, mode=1, mu=P.mu, grav=0.0)
         if R.yt < 1e-4 or R.xr - R.xl < 1e-4:
             raise RuntimeError("walls collapsed - instability")
         if R.step % 1000 == 0 and not np.all(np.isfinite(sysd["pos"])):
@@ -324,10 +354,10 @@ def run_simulation(P: Params, verbose: bool = True) -> dict:
         if ok and reached_at is None:
             reached_at = tnow
             hold_until = reached_at + max(0.05, 0.5 * (reached_at - t0))
-        if want:
+        if reached_at is not None:
             log.record(R, phase=1)
-        if reached_at is not None and tnow >= hold_until:
-            break
+            if tnow >= hold_until:
+                break
     if verbose:
         print(
             f"  consolidated t={R.step*P.dt:.3f} s "
@@ -348,17 +378,11 @@ def run_simulation(P: Params, verbose: bool = True) -> dict:
     log.th0 = sysd["th"].copy()
     eps = 0.0
     while eps < P.eps_end:
-        want = int(R.step % log.log_every == 0)
-        R.step_once(P.mu, 0.0, want_metrics=want)
-        R.yt -= P.v_y * P.dt
-        R.servo_walls(do_lid=False)
-        if R.xr - R.xl < 1e-4:
-            raise RuntimeError("walls collapsed - instability")
-        if want:
-            log.record(R, phase=2)
+        R.block(blk, mode=2, mu=P.mu, grav=0.0, want_metrics=1)
+        eps = 1.0 - R.yt / log.h0
+        log.record(R, phase=2)
         if R.step % 1000 == 0 and not np.all(np.isfinite(sysd["pos"])):
             raise RuntimeError("NaN positions - blow-up")
-        eps = 1.0 - R.yt / log.h0
     if verbose:
         print(f"  sheared to eps={eps:.3f} t={R.step*P.dt:.3f} s")
 

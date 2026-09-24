@@ -15,5 +15,6 @@ wheels/
 
 # Generated simulation outputs (regenerable via `angularity-dem campaign/analyze`)
 results/
+results*/
 figures/
 verification_report.txt

@@ -26,24 +26,50 @@ def _cmd_run(args):
     print(f"done in {time.time() - t0:.1f} s")
 
 
+def _make_params(corners, seed, preset_name, width, eps_end, outdir):
+    preset = Params.paper if preset_name == "paper" else Params.demo
+    return preset(
+        corners=corners,
+        width=width,
+        seed=seed,
+        eps_end=eps_end,
+        out=os.path.join(outdir, f"run_n{corners}_s{seed}.npz"),
+        label=f"n{corners}",
+    )
+
+
+def _run_job(job):
+    corners, seed, preset, width, eps_end, outdir = job
+    P = _make_params(corners, seed, preset, width, eps_end, outdir)
+    t0 = time.time()
+    run_simulation(P, verbose=False)
+    return corners, seed, time.time() - t0
+
+
 def _cmd_campaign(args):
-    preset = Params.paper if args.preset == "paper" else Params.demo
-    corners = [int(c) for c in args.corners.split(",")]
     os.makedirs(args.outdir, exist_ok=True)
-    for N in corners:
-        for s in range(args.samples):
-            P = preset(
-                corners=N,
-                width=args.width,
-                seed=args.seed + s,
-                eps_end=args.eps_end,
-                out=os.path.join(args.outdir, f"run_n{N}_s{args.seed + s}.npz"),
-                label=f"n{N}",
-            )
-            t0 = time.time()
-            print(f"=== N={N} sample {s + 1}/{args.samples} ===")
-            run_simulation(P)
-            print(f"=== done in {time.time() - t0:.1f} s ===")
+    corners = [int(c) for c in args.corners.split(",")]
+    jobs = [
+        (N, args.seed + s, args.preset, args.width, args.eps_end, args.outdir)
+        for N in corners
+        for s in range(args.samples)
+    ]
+    t0 = time.time()
+    if args.jobs <= 1:
+        for job in jobs:
+            N, sd, dt = _run_job(job)
+            print(f"=== N={N} seed={sd} done in {dt:.1f} s ===")
+    else:
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+
+        with ProcessPoolExecutor(max_workers=args.jobs) as ex:
+            futs = {ex.submit(_run_job, job): job for job in jobs}
+            for fut in as_completed(futs):
+                job = futs[fut]
+                N, sd, dt = fut.result()
+                print(f"=== N={N} seed={sd} done in {dt:.1f} s "
+                      f"({len(jobs) - len(futs) + 1}/{len(jobs)}) ===", flush=True)
+    print(f"campaign finished: {len(jobs)} runs in {time.time() - t0:.1f} s")
 
 
 def _cmd_analyze(args):
@@ -97,6 +123,8 @@ def main(argv=None):
     pc.add_argument("--eps-end", type=float, default=0.15)
     pc.add_argument("--samples", type=int, default=1)
     pc.add_argument("--seed", type=int, default=1)
+    pc.add_argument("--jobs", type=int, default=1,
+                    help="parallel worker processes (runs are independent)")
     pc.add_argument("--outdir", default="results")
     pc.set_defaults(func=_cmd_campaign)
 

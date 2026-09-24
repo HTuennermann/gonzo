@@ -31,8 +31,8 @@ uv sync                       # install runtime + dev deps
 uv run pytest                 # unit tests (incl. shapely cross-check of clipping)
 uv run angularity-dem verify  # fast analytic self-checks (Fig. 1, Eq. 7)
 
-# full pipeline (demo preset, ~260 particles, ~2-5 min per shape):
-uv run angularity-dem campaign --corners 5,6,7,10,13,17,32,64 --outdir results
+# full pipeline (demo preset, ~260 particles; ~8 min for all 8 shapes x 5 samples on 8 cores):
+uv run angularity-dem campaign --corners 5,6,7,10,13,17,32,64 --samples 5 --jobs 7 --outdir results
 uv run angularity-dem analyze --results results
 
 # single run / paper-scale (WARNING: days of CPU time):

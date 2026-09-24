@@ -14,6 +14,79 @@ STALE = 3  # history entries older than this many steps are ignored
 HEAD_CAP = 1 << 20  # cell-list capacity (scratch), cells beyond this widen
 
 
+@njit(cache=True, fastmath=True)
+def run_block(
+    pos, vel, th, om, frc, trq, vloc, nverts, wverts, mass, inert, rad,
+    wallstate,
+    mu, Y, gamma, xiT, dt, grav, sigma_c, servo_v, servo_gain, smooth_a,
+    lid_v, width, mode, k,
+    hist_part, hist_ft, hist_stp, step0,
+    ccount, want_metrics, m_ang, m_fn, m_ft, m_count,
+    head, nxt, buf1, buf2,
+):
+    """Run k dem_steps with the phase control law compiled in.
+
+    wallstate (float64[6], updated in place): xl, xr, yt, s_l, s_r, s_lid.
+    mode: 0 = plain steps (deposition), 1 = servo on all walls
+    (consolidation), 2 = shear (lid at -lid_v, lateral servo).
+    Metrics are collected on the last step when want_metrics != 0.
+    """
+    for q in range(k):
+        xl = wallstate[0]
+        xr = wallstate[1]
+        yt = wallstate[2]
+        wlast = 0
+        if q == k - 1:
+            wlast = want_metrics
+        fl, fr, flid = dem_step(
+            pos, vel, th, om, frc, trq, vloc, nverts, wverts,
+            mass, inert, rad, xl, xr, 0.0, yt,
+            mu, Y, gamma, xiT, dt, grav,
+            hist_part, hist_ft, hist_stp, step0 + q,
+            ccount, wlast,
+            m_ang, m_fn, m_ft, m_count, head, nxt, buf1, buf2,
+        )
+        h = yt if yt < 1e17 else 1.0
+        wallstate[3] += smooth_a * (fl / h - wallstate[3])
+        wallstate[4] += smooth_a * (fr / h - wallstate[4])
+        wallstate[5] += smooth_a * (flid / max(xr - xl, 1e-12) - wallstate[5])
+        if mode == 1 or mode == 2:
+            e_l = servo_gain * (sigma_c - wallstate[3]) / sigma_c
+            if e_l > 1.0:
+                e_l = 1.0
+            elif e_l < -1.0:
+                e_l = -1.0
+            e_r = servo_gain * (sigma_c - wallstate[4]) / sigma_c
+            if e_r > 1.0:
+                e_r = 1.0
+            elif e_r < -1.0:
+                e_r = -1.0
+            nxl = wallstate[0] + servo_v * e_l * dt
+            nxr = wallstate[1] - servo_v * e_r * dt
+            if nxl < -0.1 * width:
+                nxl = -0.1 * width
+            elif nxl > 0.45 * width:
+                nxl = 0.45 * width
+            if nxr > 1.1 * width:
+                nxr = 1.1 * width
+            elif nxr < nxl + 0.2 * width:
+                nxr = nxl + 0.2 * width
+            wallstate[0] = nxl
+            wallstate[1] = nxr
+            if mode == 1:
+                e_t = servo_gain * (sigma_c - wallstate[5]) / sigma_c
+                if e_t > 1.0:
+                    e_t = 1.0
+                elif e_t < -1.0:
+                    e_t = -1.0
+                nyt = wallstate[2] - servo_v * e_t * dt
+                if nyt < 0.05 * width:
+                    nyt = 0.05 * width
+                wallstate[2] = nyt
+            else:
+                wallstate[2] = max(wallstate[2] - lid_v * dt, 0.05 * width)
+
+
 @njit(cache=True, fastmath=True, inline="always")
 def _hist_get(part, fts, stps, owner, other, now):
     base = owner * MAX_SLOTS
