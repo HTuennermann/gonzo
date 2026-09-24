@@ -186,6 +186,13 @@ class _Runner:
         self.m_fn = np.empty(n * 6)
         self.m_ft = np.empty(n * 6)
         self.m_count = np.zeros(1, dtype=np.int64)
+        from .engine import HEAD_CAP
+
+        self.head = np.empty(HEAD_CAP, dtype=np.int64)
+        self.nxt = np.empty(n, dtype=np.int64)
+        K = sysd["vloc"].shape[1]
+        self.buf1 = np.empty((2 * K + 8, 2))
+        self.buf2 = np.empty((2 * K + 8, 2))
 
     def step_once(self, mu, grav, want_metrics=0):
         fl, fr, flid = dem_step(
@@ -197,6 +204,7 @@ class _Runner:
             self.s["hist_part"], self.s["hist_ft"], self.s["hist_stp"], self.step,
             self.s["ccount"], want_metrics,
             self.m_ang, self.m_fn, self.m_ft, self.m_count,
+            self.head, self.nxt, self.buf1, self.buf2,
         )
         self.step += 1
         a = 1.0 / self.P.smooth_tau

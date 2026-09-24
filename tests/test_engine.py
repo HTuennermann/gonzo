@@ -51,12 +51,16 @@ def test_fabric_aniso_anisotropic():
 
 def test_free_flight_trajectory():
     """No contacts: exact parabolic trajectory (integrator check)."""
-    from angularity_dem.engine import dem_step
+    from angularity_dem.engine import HEAD_CAP, dem_step
 
     P = Params(corners=5)
     r = 2.5e-3
     v = regular_polygon(5, r, 0.3)
     n = 1
+    scratch = (
+        np.empty(HEAD_CAP, dtype=np.int64), np.empty(n, dtype=np.int64),
+        np.empty((12, 2)), np.empty((12, 2)),
+    )
     vloc = np.zeros((n, 5, 2))
     vloc[0] = v
     mass = np.array([P.rho * polygon_area(v)])
@@ -78,7 +82,7 @@ def test_free_flight_trajectory():
             np.full(n * 16, -(10**9), dtype=np.int64), i,
             np.zeros(n, dtype=np.int64), 0,
             np.empty(n * 4), np.empty(n * 4), np.empty(n * 4),
-            np.zeros(1, dtype=np.int64),
+            np.zeros(1, dtype=np.int64), *scratch,
         )
     t = 2000 * dt
     assert pos[0, 0] == pytest.approx(0.05 + 0.3 * t, abs=1e-9)
@@ -91,12 +95,16 @@ def test_free_flight_trajectory():
 
 def test_particle_settles_on_floor_overlap():
     """Equilibrium overlap on floor matches F = Y A / l = m g (2D weight)."""
-    from angularity_dem.engine import dem_step
+    from angularity_dem.engine import HEAD_CAP, dem_step
 
     P = Params(corners=5)
     r = 2.5e-3
     v = regular_polygon(5, r, np.pi * 1.3)  # flat bottom edge (vertices 234/306 deg)
     n = 1
+    scratch = (
+        np.empty(HEAD_CAP, dtype=np.int64), np.empty(n, dtype=np.int64),
+        np.empty((12, 2)), np.empty((12, 2)),
+    )
     vloc = np.zeros((n, 5, 2))
     vloc[0] = v
     mass = np.array([P.rho * polygon_area(v)])
@@ -123,7 +131,7 @@ def test_particle_settles_on_floor_overlap():
             hist, hft, hst, i,
             np.zeros(n, dtype=np.int64), 0,
             np.empty(n * 4), np.empty(n * 4), np.empty(n * 4),
-            np.zeros(1, dtype=np.int64),
+            np.zeros(1, dtype=np.int64), *scratch,
         )
     # equilibrium: F = Y A / l = m g with A = w*delta, l = 2*(r_in - delta/2)
     w = 2 * r * np.sin(np.pi / 5)  # edge length (flat on floor)

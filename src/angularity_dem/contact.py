@@ -42,14 +42,20 @@ def _clip_halfplane(pin, nin, ox, oy, ex, ey, pout):
 
 
 @njit(cache=True, fastmath=True)
-def polygon_overlap(Pa, na, Pb, nb, buf1, buf2):
-    """Overlap polygon of convex CCW polygons Pa (na verts) and Pb (nb verts).
+def polygon_overlap(Pa, na, Pb, nb, buf1, buf2, ra, rb):
+    """Overlap polygon of convex CCW regular polygons Pa (na) and Pb (nb).
 
-    Clips Pa against all half-planes of Pb (edges ordered far-to-near for early
-    rejection). Result (m>=3 vertices) is copied into buf1; returns m (0 if empty).
+    ra, rb are the circumradii. When the circumcircles properly intersect
+    (thin-contact regime), only Pb's edges whose lines can cut the circle lens
+    are visited: normals within alpha_b + pi/nb of the near direction, where
+    cos(alpha_b) = (d^2 + rb^2 - ra^2) / (2 d rb). This window is exact for
+    regular polygons (edge lines are incircle tangents at uniform spacing);
+    every other edge's half-plane contains all of Pa, so skipping them cannot
+    change the result. Deep overlaps fall back to a full far-to-near ordered
+    walk with early exit.
+
+    Result (m>=3 vertices) is copied into buf1; returns m (0 if empty).
     """
-    # order Pb edges by decreasing distance of edge midpoint along (Pb.c - Pa.c)
-    # approximated by projection of edge midpoint minus Pa centroid
     cax = 0.0
     cay = 0.0
     for k in range(na):
@@ -64,30 +70,66 @@ def polygon_overlap(Pa, na, Pb, nb, buf1, buf2):
         cby += Pb[k, 1]
     cbx /= nb
     cby /= nb
-    dx = cbx - cax
-    dy = cby - cay
+    dx = cax - cbx  # near direction (from b towards a)
+    dy = cay - cby
+    dist = np.sqrt(dx * dx + dy * dy)
 
-    # selection sort of edge indices by decreasing support (nb is small, <=64)
-    supp = np.empty(nb)
-    order = np.empty(nb, dtype=np.int64)
-    for e in range(nb):
-        j = e + 1
-        if j >= nb:
-            j = 0
-        supp[e] = 0.5 * (Pb[e, 0] + Pb[j, 0]) * dx + 0.5 * (Pb[e, 1] + Pb[j, 1]) * dy
-        order[e] = e
-    for i in range(nb):
-        imax = i
-        for k in range(i + 1, nb):
-            if supp[k] > supp[imax]:
-                imax = k
-        if imax != i:
-            tmp = supp[i]
-            supp[i] = supp[imax]
-            supp[imax] = tmp
-            it = order[i]
-            order[i] = order[imax]
-            order[imax] = it
+    dth = 2.0 * np.pi / nb
+    base = np.arctan2(Pb[0, 1] - cby, Pb[0, 0] - cbx)
+
+    use_window = (dist > 1e-12) and (abs(ra - rb) < dist) and (dist < ra + rb)
+    if use_window:
+        cosab = (dist * dist + rb * rb - ra * ra) / (2.0 * dist * rb)
+        if cosab > 1.0:
+            cosab = 1.0
+        elif cosab < -1.0:
+            cosab = -1.0
+        alpha = np.arccos(cosab)
+        # near-face edge: outward normal nearest to (ca - cb)
+        e0 = int(np.round((np.arctan2(dy, dx) - base) / dth - 0.5)) % nb
+        w = int(np.ceil(alpha / dth + 0.5))
+        if w > nb:
+            w = nb  # deep overlap: revisit is idempotent, just cap the array
+        edges = np.empty(2 * w + 1, dtype=np.int64)
+        ne = 0
+        edges[ne] = e0
+        ne += 1
+        for k in range(1, w + 1):
+            edges[ne] = (e0 + k) % nb
+            ne += 1
+            edges[ne] = (e0 - k) % nb
+            ne += 1
+    else:
+        # full walk, far-to-near (support-ordered) for early exit
+        dx = -dx
+        dy = -dy
+        e0 = int(np.round((np.arctan2(dy, dx) - base) / dth - 0.5)) % nb
+        edges = np.empty(nb, dtype=np.int64)
+        ne = 0
+        ii = (e0 + 1) % nb
+        jj = (e0 - 1) % nb
+        left = nb
+        while left > 0:
+            if left == nb:
+                e = e0
+            else:
+                j = ii + 1
+                if j >= nb:
+                    j = 0
+                si = (Pb[ii, 0] + Pb[j, 0]) * dx + (Pb[ii, 1] + Pb[j, 1]) * dy
+                jm = jj - 1
+                if jm < 0:
+                    jm = nb - 1
+                sj = (Pb[jj, 0] + Pb[jm, 0]) * dx + (Pb[jj, 1] + Pb[jm, 1]) * dy
+                if si >= sj:
+                    e = ii
+                    ii = j
+                else:
+                    e = jj
+                    jj = jm
+            left -= 1
+            edges[ne] = e
+            ne += 1
 
     cur = buf1
     oth = buf2
@@ -96,8 +138,8 @@ def polygon_overlap(Pa, na, Pb, nb, buf1, buf2):
         cur[k, 1] = Pa[k, 1]
     n = na
     swapped = 0
-    for s in range(nb):
-        e = order[s]
+    for s in range(ne):
+        e = edges[s]
         j = e + 1
         if j >= nb:
             j = 0

@@ -24,8 +24,10 @@ def _overlap_py(pa, pb):
 
 def _run_overlap(pa, pb):
     bufs = [np.zeros((len(pa) + len(pb) + 8, 2)) for _ in range(2)]
+    ra = float(np.max(np.linalg.norm(pa - pa.mean(axis=0), axis=1)))
+    rb = float(np.max(np.linalg.norm(pb - pb.mean(axis=0), axis=1)))
     m = polygon_overlap(np.ascontiguousarray(pa), len(pa),
-                        np.ascontiguousarray(pb), len(pb), bufs[0], bufs[1])
+                        np.ascontiguousarray(pb), len(pb), bufs[0], bufs[1], ra, rb)
     assert m >= 3
     return overlap_area_centroid(bufs[0], m)
 
@@ -63,7 +65,7 @@ def test_no_overlap_separated():
     p1 = regular_polygon(5, 1.0)
     p2 = regular_polygon(5, 1.0) + [5.0, 5.0]
     bufs = [np.zeros((24, 2)) for _ in range(2)]
-    m = polygon_overlap(p1, 5, p2, 5, bufs[0], bufs[1])
+    m = polygon_overlap(p1, 5, p2, 5, bufs[0], bufs[1], 1.0, 1.0)
     assert m == 0
 
 

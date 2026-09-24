@@ -11,13 +11,15 @@ from .contact import char_length, contact_frame, overlap_area_centroid, polygon_
 
 MAX_SLOTS = 16  # per-particle Cundall-Strack history slots
 STALE = 3  # history entries older than this many steps are ignored
+HEAD_CAP = 1 << 20  # cell-list capacity (scratch), cells beyond this widen
 
 
 @njit(cache=True, fastmath=True, inline="always")
 def _hist_get(part, fts, stps, owner, other, now):
     base = owner * MAX_SLOTS
     for s in range(MAX_SLOTS):
-        if part[base + s] == other and now - stps[base + s] <= STALE:
+        age = now - stps[base + s]
+        if part[base + s] == other and 0 <= age <= STALE:
             return fts[base + s]
     return 0.0
 
@@ -60,11 +62,13 @@ def dem_step(
     hist_part, hist_ft, hist_stp, step_now,
     ccount,
     want_metrics, m_ang, m_fn, m_ft, m_count,
+    head, nxt, buf1, buf2,
 ):
     """One DEM step. Returns (F_left, F_right, F_lid) wall reactions (inward > 0).
 
     Particles are convex CCW polygons; walls axis-aligned; yt=1e18 disables lid.
     Metrics arrays are filled when want_metrics != 0 (m_count[0] = n contacts).
+    head/nxt/buf1/buf2 are caller-provided scratch (head sized HEAD_CAP).
     """
     n = pos.shape[0]
     K = vloc.shape[1]
@@ -107,18 +111,19 @@ def dem_step(
             ymax = pos[i, 1]
     ncx = int((xmax - xmin) / cell) + 1
     ncy = int((ymax - ymin) / cell) + 1
-    # safety cap: enlarge cells if the span is pathological (runaway particle)
-    while ncx * ncy > 4_000_000:
-        cell *= 2.0
-        ncx = int((xmax - xmin) / cell) + 1
-        ncy = int((ymax - ymin) / cell) + 1
     if ncx < 1:
         ncx = 1
     if ncy < 1:
         ncy = 1
+    # safety cap: enlarge cells if the span is pathological (runaway particle)
+    ncell_max = head.shape[0]
+    while ncx * ncy > ncell_max:
+        cell *= 2.0
+        ncx = int((xmax - xmin) / cell) + 1
+        ncy = int((ymax - ymin) / cell) + 1
     ncell = ncx * ncy
-    head = np.full(ncell, -1, dtype=np.int64)
-    nxt = np.empty(n, dtype=np.int64)
+    for c in range(ncell):
+        head[c] = -1
     for i in range(n):
         ci = int((pos[i, 0] - xmin) / cell)
         cj = int((pos[i, 1] - ymin) / cell)
@@ -134,8 +139,6 @@ def dem_step(
         nxt[i] = head[c]
         head[c] = i
 
-    buf1 = np.empty((2 * K + 8, 2))
-    buf2 = np.empty((2 * K + 8, 2))
     m_n = 0
 
     # half-stencil so every cell pair is visited once
@@ -182,7 +185,8 @@ def dem_step(
                                 a = j
                                 b = i
                             m = polygon_overlap(
-                                wverts[a], nverts[a], wverts[b], nverts[b], buf1, buf2
+                                wverts[a], nverts[a], wverts[b], nverts[b],
+                                buf1, buf2, rad[a], rad[b],
                             )
                             if m >= 3:
                                 A, cx, cy = overlap_area_centroid(buf1, m)
