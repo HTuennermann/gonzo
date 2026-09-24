@@ -1,0 +1,36 @@
+CAN DISCS EMULATE ANGULARITY?  rolling friction vs particle shape
+======================================================================
+
+Demo preset (w=0.08 m, ~250 particles), identical protocol for all runs.
+Pentagon (N=5) = angular reference; N=64 = quasi-circular reference.
+'servo' = fraction of critical-state rows where the lateral servo holds
+sigma_c; low values flag stick-slip jams (excluded from the best match).
+
+                series      phi   phi_mu porosity medrot_end        Z    medFN    aniso servo_ok_fraction
+---------------------------------------------------------------------------------------------------------
+          N=5 pentagon    0.637    1.274    0.220    0.203    2.974      251    1.630    0.568
+    N=64 disc (mu_r=0)    0.287    0.574    0.203    0.630    3.079      190    1.242    1.000
+           disc mu=0.2    0.244    1.218    0.190    0.483    3.323      156    1.214    1.000
+          disc mu=0.35    0.276    0.789    0.199    0.557    3.178      177    1.239    1.000
+           disc mu=0.7    0.313    0.448    0.207    0.704    3.013      206    1.275    0.959
+             disc mu=1    0.307    0.307    0.206    0.719    2.970      209    1.246    0.984
+ disc mu=0.5,mu_r=0.02    0.407    0.814    0.215    0.479    2.992      228    1.327    0.870
+ disc mu=0.5,mu_r=0.05    0.451    0.903    0.222    0.371    2.926      235    1.432    0.693
+  disc mu=0.5,mu_r=0.1    0.460    0.919    0.222    0.268    2.861      255    1.436    0.828
+  disc mu=0.5,mu_r=0.2    0.592    1.183    0.233    0.189    2.702      290    1.507    0.621
+    disc mu=1,mu_r=0.2    0.716    0.716    0.252    0.291    2.693     3474    1.686      nan
+  disc mu=0.5,mu_r=0.4    0.721    1.442    0.242    0.142    2.688      367    1.566    0.327  <-- jam (unreliable)
+
+best disc match to pentagon: mu=0.5,mu_r=0.05  (distance 0.99)
+
+mismatch of the best disc model vs the pentagon, in units of the
+pentagon-to-disc span for each observable:
+      phi_mu: pentagon     1.274  best disc     0.903  residual   -53.1% of span
+    porosity: pentagon     0.220  best disc     0.222  residual    +9.0% of span
+  medrot_end: pentagon     0.203  best disc     0.371  residual   +39.2% of span
+           Z: pentagon     2.974  best disc     2.926  residual   -45.2% of span
+       medFN: pentagon   250.942  best disc   235.340  residual   -25.5% of span
+       aniso: pentagon     1.630  best disc     1.432  residual   -50.8% of span
+
+force heterogeneity (share of F_N on strongest 20% contacts):
+  N=5 pentagon 0.499   N=64 disc 0.447   best disc 0.430

@@ -1,0 +1,61 @@
+30 disc runs
+  1/30  N=64 mu=0.5 mu_r=0.02 seed=2  88s
+  2/30  N=64 mu=0.5 mu_r=0.05 seed=3  90s
+  3/30  N=64 mu=0.5 mu_r=0.05 seed=1  96s
+  4/30  N=64 mu=0.5 mu_r=0.05 seed=2  96s
+  5/30  N=64 mu=0.5 mu_r=0.1 seed=1  96s
+  6/30  N=64 mu=0.5 mu_r=0.02 seed=3  97s
+  7/30  N=64 mu=0.5 mu_r=0.02 seed=1  100s
+  8/30  N=64 mu=0.5 mu_r=0.1 seed=2  84s
+  9/30  N=64 mu=0.5 mu_r=0.1 seed=3  88s
+  10/30  N=64 mu=0.5 mu_r=0.2 seed=3  83s
+  11/30  N=64 mu=0.5 mu_r=0.4 seed=1  86s
+  12/30  N=64 mu=0.5 mu_r=0.4 seed=2  89s
+  13/30  N=64 mu=0.5 mu_r=0.2 seed=1  96s
+  14/30  N=64 mu=0.5 mu_r=0.2 seed=2  109s
+  15/30  N=64 mu=0.5 mu_r=0.4 seed=3  116s
+  16/30  N=64 mu=0.2 mu_r=0 seed=2  113s
+  17/30  N=64 mu=0.35 mu_r=0 seed=2  107s
+  18/30  N=64 mu=0.2 mu_r=0 seed=1  127s
+  19/30  N=64 mu=0.2 mu_r=0 seed=3  125s
+  20/30  N=64 mu=0.35 mu_r=0 seed=1  121s
+  21/30  N=64 mu=0.35 mu_r=0 seed=3  120s
+  22/30  N=64 mu=0.7 mu_r=0 seed=2  90s
+  23/30  N=64 mu=0.7 mu_r=0 seed=1  103s
+  24/30  N=64 mu=1 mu_r=0 seed=2  87s
+  25/30  N=64 mu=0.7 mu_r=0 seed=3  100s
+  26/30  N=64 mu=1 mu_r=0 seed=3  95s
+  27/30  N=64 mu=1 mu_r=0 seed=1  101s
+  28/30  N=64 mu=1 mu_r=0.2 seed=1  89s
+  29/30  N=64 mu=1 mu_r=0.2 seed=3  58s
+  30/30  N=64 mu=1 mu_r=0.2 seed=2  76s
+  RSA: dropped 1 particles
+  RSA: dropped 5 particles
+  RSA: dropped 6 particles
+  RSA: dropped 6 particles
+  RSA: dropped 6 particles
+  RSA: dropped 1 particles
+  RSA: dropped 1 particles
+  RSA: dropped 6 particles
+  RSA: dropped 5 particles
+  RSA: dropped 5 particles
+  RSA: dropped 1 particles
+  RSA: dropped 5 particles
+  RSA: dropped 6 particles
+  RSA: dropped 5 particles
+  RSA: dropped 5 particles
+  RSA: dropped 1 particles
+  RSA: dropped 1 particles
+  RSA: dropped 1 particles
+  RSA: dropped 6 particles
+  RSA: dropped 1 particles
+  RSA: dropped 5 particles
+  RSA: dropped 6 particles
+  RSA: dropped 6 particles
+  RSA: dropped 5 particles
+  RSA: dropped 1 particles
+  RSA: dropped 5 particles
+  RSA: dropped 6 particles
+  RSA: dropped 6 particles
+  RSA: dropped 5 particles
+  RSA: dropped 1 particles

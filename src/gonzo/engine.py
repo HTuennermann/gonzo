@@ -18,9 +18,9 @@ HEAD_CAP = 1 << 20  # cell-list capacity (scratch), cells beyond this widen
 def run_block(
     pos, vel, th, om, frc, trq, vloc, nverts, wverts, mass, inert, rad,
     wallstate,
-    mu, Y, gamma, xiT, dt, grav, sigma_c, servo_v, servo_gain, smooth_a,
+    mu, mu_r, Y, gamma, xiT, dt, grav, sigma_c, servo_v, servo_gain, smooth_a,
     lid_v, width, mode, k,
-    hist_part, hist_ft, hist_stp, step0,
+    hist_part, hist_ft, hist_m, hist_stp, step0,
     ccount, want_metrics, m_ang, m_fn, m_ft, m_count,
     head, nxt, buf1, buf2,
 ):
@@ -41,8 +41,8 @@ def run_block(
         fl, fr, flid = dem_step(
             pos, vel, th, om, frc, trq, vloc, nverts, wverts,
             mass, inert, rad, xl, xr, 0.0, yt,
-            mu, Y, gamma, xiT, dt, grav,
-            hist_part, hist_ft, hist_stp, step0 + q,
+            mu, mu_r, Y, gamma, xiT, dt, grav,
+            hist_part, hist_ft, hist_m, hist_stp, step0 + q,
             ccount, wlast,
             m_ang, m_fn, m_ft, m_count, head, nxt, buf1, buf2,
         )
@@ -131,8 +131,8 @@ def dem_step(
     vloc, nverts, wverts,
     mass, inert, rad,
     xl, xr, yb, yt,
-    mu, Y, gamma, xiT, dt, grav,
-    hist_part, hist_ft, hist_stp, step_now,
+    mu, mu_r, Y, gamma, xiT, dt, grav,
+    hist_part, hist_ft, hist_m, hist_stp, step_now,
     ccount,
     want_metrics, m_ang, m_fn, m_ft, m_count,
     head, nxt, buf1, buf2,
@@ -140,6 +140,8 @@ def dem_step(
     """One DEM step. Returns (F_left, F_right, F_lid) wall reactions (inward > 0).
 
     Particles are convex CCW polygons; walls axis-aligned; yt=1e18 disables lid.
+    mu_r > 0 adds Coulomb rolling friction between particles, stored in hist_m
+    (0 reproduces the original behaviour bitwise).
     Metrics arrays are filled when want_metrics != 0 (m_count[0] = n contacts).
     head/nxt/buf1/buf2 are caller-provided scratch (head sized HEAD_CAP).
     """
@@ -314,6 +316,32 @@ def dem_step(
                                     frc[b, 1] += Fy
                                     trq[a] -= rax * Fy - ray * Fx
                                     trq[b] += rbx * Fy - rby * Fx
+                                    if mu_r > 0.0:
+                                        # Coulomb rolling friction with the same
+                                        # Cundall-Strack structure as the
+                                        # tangential force: rolling spring of
+                                        # stiffness kR = kT * R_eff^2 capped at
+                                        # mu_r * FN * R_eff. It only opposes
+                                        # relative spin; contact geometry (and
+                                        # hence interlocking) is untouched -
+                                        # the mechanism the paper argues cannot
+                                        # substitute for angularity.
+                                        R_eff = 0.5 * (rad[a] + rad[b])
+                                        kR = kT * R_eff * R_eff
+                                        MR = _hist_get(
+                                            hist_part, hist_m, hist_stp, a, b, step_now
+                                        )
+                                        MR -= kR * dt * (om[b] - om[a])
+                                        mcap = mu_r * FN * R_eff
+                                        if MR > mcap:
+                                            MR = mcap
+                                        elif MR < -mcap:
+                                            MR = -mcap
+                                        _hist_set(
+                                            hist_part, hist_m, hist_stp, a, b, MR, step_now
+                                        )
+                                        trq[a] -= MR
+                                        trq[b] += MR
                                     ccount[a] += 1
                                     ccount[b] += 1
                                     if want_metrics != 0:

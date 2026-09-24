@@ -83,4 +83,29 @@ uv run gonzo run --corners 5 --preset paper    # w=0.25 m, ~2500 particles, ~2 h
 - `src/gonzo/cli.py`      - `run` / `campaign` / `analyze` / `verify`
 - `tests/`                - pytest suite (shapely cross-validation)
 - `bench/`                - chaos-safe timing + regression harness
+- `experiments/`          - discs-vs-angularity study (rolling friction, see below)
 - `PLAN.md`               - performance work log (23x narrow-phase speedup)
+
+## Does rolling friction on discs substitute for angularity?
+
+The paper argues disc-based models (rolling friction, clusters of discs) cannot
+replace polygonal particles, in particular criticising rolling friction because
+it only opposes rotation and cannot create geometric interlocking.
+`experiments/rolling_vs_shape.py` tests this by trying to make quasi-circular
+particles (N=64) reproduce the pentagon fingerprint with rolling friction
+(`mu_r`) or sliding friction (`mu`):
+
+    uv run python experiments/rolling_vs_shape.py run --jobs 7
+    uv run python experiments/rolling_vs_shape.py analyze
+
+Findings (demo preset, 3 samples per point): sliding friction alone raises
+strength only weakly and leaves porosity, rotation and coordination unchanged,
+i.e. it cannot emulate angularity. **Rolling friction does**: as `mu_r` grows,
+strength, critical-state porosity, force per contact and contact anisotropy all
+increase while median rotation and coordination number fall - the same
+fingerprint as the N=5 -> N=64 shape series, and it can be tuned to match the
+pentagon closely. Residual differences remain in the force-network
+heterogeneity and the strength-coordination relation. Caveat: at this sample
+size strong interlocking (high `mu_r`, and pentagons themselves) produces
+stick-slip jams; the report flags runs where the lateral servo cannot hold the
+confining pressure.

@@ -25,6 +25,77 @@ def _sys_2_particles():
     return P, vloc, mass, r
 
 
+def test_rolling_friction_sprung_coulomb():
+    """Rolling friction: neutral at rest, opposes relative spin, mu_r-ordered."""
+    from gonzo.engine import HEAD_CAP, dem_step
+
+    P = Params(corners=64)
+    r = 2.5e-3
+    nv = 64
+    v = regular_polygon(nv, r, 0.0)
+    n = 2
+    vloc = np.zeros((n, nv, 2))
+    vloc[0] = v
+    vloc[1] = v
+    mass = np.full(n, P.rho * polygon_area(v))
+    inert = np.full(n, P.rho * polygon_area(v) * r**2 * 0.5)
+    rad = np.full(n, r)
+    sep = 2 * r - 1e-5  # slight overlap
+    pos = np.array([[0.05, 0.05], [0.05 + sep, 0.05]])
+    scratch = (
+        np.empty(HEAD_CAP, dtype=np.int64), np.empty(n, dtype=np.int64),
+        np.empty((2 * nv + 8, 2)), np.empty((2 * nv + 8, 2)),
+    )
+
+    def run(mu_r, om0, nsteps):
+        vel = np.zeros((n, 2))
+        om = np.array(om0, dtype=float)
+        th = np.zeros(n)
+        hist = np.full(n * 16, -1, dtype=np.int64)
+        hft = np.zeros(n * 16)
+        hm = np.zeros(n * 16)
+        hst = np.full(n * 16, -(10**9), dtype=np.int64)
+        for i in range(nsteps):
+            dem_step(
+                pos.copy(), vel, th, om,
+                np.zeros((n, 2)), np.zeros(n),
+                vloc, np.full(n, nv), np.zeros_like(vloc),
+                mass, inert, rad,
+                -1.0, 1.0, -1.0, 2.0,
+                0.5, mu_r, P.Y, P.gamma, P.xi_t, 2e-6, 0.0,
+                hist, hft, hm, hst, i,
+                np.zeros(n, dtype=np.int64), 0,
+                np.empty(n * 4), np.empty(n * 4), np.empty(n * 4),
+                np.zeros(1, dtype=np.int64), *scratch,
+            )
+        return om
+
+    # no relative spin -> rolling friction is essentially inactive (only the
+    # tiny relative spin seeded by the contact model itself engages it)
+    om_ref = run(0.0, [0.7, 0.7], 200)
+    om_roll = run(0.4, [0.7, 0.7], 200)
+    assert np.allclose(om_ref, om_roll, rtol=1e-5)
+
+    # relative spin is resisted smoothly (one step, no chatter)
+    om1 = run(0.2, [1.0, -1.0], 1)
+    d = om1 - np.array([1.0, -1.0])
+    assert d[0] < 0 and d[1] > 0            # opposes the relative spin
+    assert abs(om1[1] - om1[0]) < 2.0       # reduced, not amplified
+    assert np.abs(d).max() < 0.05           # spring builds up gradually
+
+    # cap regime: with a large relative spin the torque saturates at
+    # mu_r * FN * R_eff and is therefore linear in mu_r
+    start = np.array([2000.0, -2000.0])
+    d1 = start - run(0.1, start, 1)
+    d3 = start - run(0.3, start, 1)
+    assert d1[0] > 0 and d1[1] < 0          # still opposing
+    assert np.allclose(d3, 3.0 * d1, rtol=1e-6)
+
+    # stable, bounded over many steps (no blow-up)
+    om = run(0.4, [1.0, -1.0], 400)
+    assert np.all(np.isfinite(om)) and np.abs(om).max() < 100.0
+
+
 def test_phi_eta_roundtrip():
     for eta in (1.2, 1.8, 2.755, 5.0):
         phi = friction_param(eta * 2e4, 2e4)
@@ -77,8 +148,9 @@ def test_free_flight_trajectory():
             vloc, np.full(n, 5), np.zeros_like(vloc),
             mass, inert, np.array([r]),
             -1.0, 1.0, -1.0, 2.0,  # walls far away
-            0.5, P.Y, P.gamma, P.xi_t, dt, 9.81,
+            0.5, 0.0, P.Y, P.gamma, P.xi_t, dt, 9.81,
             np.full(n * 16, -1, dtype=np.int64), np.zeros(n * 16),
+            np.zeros(n * 16),
             np.full(n * 16, -(10**9), dtype=np.int64), i,
             np.zeros(n, dtype=np.int64), 0,
             np.empty(n * 4), np.empty(n * 4), np.empty(n * 4),
@@ -119,6 +191,7 @@ def test_particle_settles_on_floor_overlap():
     dt = 2e-6
     hist = np.full(n * 16, -1, dtype=np.int64)
     hft = np.zeros(n * 16)
+    hm = np.zeros(n * 16)
     hst = np.full(n * 16, -(10**9), dtype=np.int64)
     for i in range(60000):
         dem_step(
@@ -127,8 +200,8 @@ def test_particle_settles_on_floor_overlap():
             vloc, np.full(n, 5), np.zeros_like(vloc),
             mass, inert, rad,
             -1.0, 1.0, 0.0, 2.0,
-            0.5, P.Y, 2.0, P.xi_t, dt, 9.81,
-            hist, hft, hst, i,
+            0.5, 0.0, P.Y, 2.0, P.xi_t, dt, 9.81,
+            hist, hft, hm, hst, i,
             np.zeros(n, dtype=np.int64), 0,
             np.empty(n * 4), np.empty(n * 4), np.empty(n * 4),
             np.zeros(1, dtype=np.int64), *scratch,

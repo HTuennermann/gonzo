@@ -32,6 +32,7 @@ class Params:
     rho: float = 2830.0
     Y: float = 1e9
     mu: float = 0.5
+    mu_r: float = 0.0  # Coulomb rolling friction (0 = paper behaviour)
     gamma: float = 1.0  # paper unspecified; see README
     xi_t: float = 2.0 / 7.0  # kT = xi_t * kN
     width: float = 0.08
@@ -153,6 +154,7 @@ def build_system(P: Params, rng: np.random.Generator) -> dict:
         "ccount": np.zeros(n, dtype=np.int64),
         "hist_part": np.full(n * MAX_SLOTS, -1, dtype=np.int64),
         "hist_ft": np.zeros(n * MAX_SLOTS),
+        "hist_m": np.zeros(n * MAX_SLOTS),
         "hist_stp": np.full(n * MAX_SLOTS, -(10**9), dtype=np.int64),
         "K": K,
         "sum_area": float(np.sum(mass) / P.rho),
@@ -169,6 +171,7 @@ def _rebuild_after_trim(sysd: dict, keep: np.ndarray, rho: float) -> None:
     sysd["ccount"] = np.zeros(n, dtype=np.int64)
     sysd["hist_part"] = np.full(n * MAX_SLOTS, -1, dtype=np.int64)
     sysd["hist_ft"] = np.zeros(n * MAX_SLOTS)
+    sysd["hist_m"] = np.zeros(n * MAX_SLOTS)
     sysd["hist_stp"] = np.full(n * MAX_SLOTS, -(10**9), dtype=np.int64)
     sysd["sum_area"] = float(np.sum(sysd["mass"]) / rho)
 
@@ -218,10 +221,10 @@ class _Runner:
             s["pos"], s["vel"], s["th"], s["om"], s["frc"], s["trq"],
             s["vloc"], s["nverts"], s["wverts"], s["mass"], s["inert"], s["rad"],
             ws,
-            mu, P.Y, P.gamma, P.xi_t, P.dt, grav, P.sigma_c,
+            mu, P.mu_r, P.Y, P.gamma, P.xi_t, P.dt, grav, P.sigma_c,
             P.servo_v, P.servo_gain, 1.0 / P.smooth_tau,
             P.v_y, P.width, mode, k,
-            s["hist_part"], s["hist_ft"], s["hist_stp"], self.step,
+            s["hist_part"], s["hist_ft"], s["hist_m"], s["hist_stp"], self.step,
             s["ccount"], want_metrics,
             self.m_ang, self.m_fn, self.m_ft, self.m_count,
             self.head, self.nxt, self.buf1, self.buf2,
@@ -235,8 +238,8 @@ class _Runner:
             self.s["frc"], self.s["trq"], self.s["vloc"], self.s["nverts"],
             self.s["wverts"], self.s["mass"], self.s["inert"], self.s["rad"],
             self.xl, self.xr, 0.0, self.yt,
-            mu, self.P.Y, self.P.gamma, self.P.xi_t, self.P.dt, grav,
-            self.s["hist_part"], self.s["hist_ft"], self.s["hist_stp"], self.step,
+            mu, self.P.mu_r, self.P.Y, self.P.gamma, self.P.xi_t, self.P.dt, grav,
+            self.s["hist_part"], self.s["hist_ft"], self.s["hist_m"], self.s["hist_stp"], self.step,
             self.s["ccount"], want_metrics,
             self.m_ang, self.m_fn, self.m_ft, self.m_count,
             self.head, self.nxt, self.buf1, self.buf2,
