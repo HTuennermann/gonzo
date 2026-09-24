@@ -1,10 +1,10 @@
 import numpy as np
 import pytest
 
-from angularity_dem.analysis import eta_from_phi, friction_param
-from angularity_dem.engine import fabric_aniso
-from angularity_dem.geometry import polygon_area, regular_polygon
-from angularity_dem.protocol import Params, build_system, run_simulation
+from gonzo.analysis import eta_from_phi, friction_param
+from gonzo.engine import fabric_aniso
+from gonzo.geometry import polygon_area, regular_polygon
+from gonzo.protocol import Params, build_system, run_simulation
 
 
 def _sys_2_particles():
@@ -51,7 +51,7 @@ def test_fabric_aniso_anisotropic():
 
 def test_free_flight_trajectory():
     """No contacts: exact parabolic trajectory (integrator check)."""
-    from angularity_dem.engine import HEAD_CAP, dem_step
+    from gonzo.engine import HEAD_CAP, dem_step
 
     P = Params(corners=5)
     r = 2.5e-3
@@ -95,7 +95,7 @@ def test_free_flight_trajectory():
 
 def test_particle_settles_on_floor_overlap():
     """Equilibrium overlap on floor matches F = Y A / l = m g (2D weight)."""
-    from angularity_dem.engine import HEAD_CAP, dem_step
+    from gonzo.engine import HEAD_CAP, dem_step
 
     P = Params(corners=5)
     r = 2.5e-3

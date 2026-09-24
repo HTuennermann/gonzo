@@ -18,7 +18,7 @@ import time
 
 import numpy as np
 
-from angularity_dem.protocol import Params, build_system, _Runner
+from gonzo.protocol import Params, build_system, _Runner
 
 SETUP = {6: (60_000, 30_000), 64: (60_000, 30_000)}
 

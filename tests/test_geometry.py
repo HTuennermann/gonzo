@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from angularity_dem.geometry import (
+from gonzo.geometry import (
     area_equivalent_diameter,
     circularity,
     fig1_table,

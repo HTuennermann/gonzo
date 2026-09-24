@@ -2,13 +2,13 @@ import numpy as np
 import pytest
 from numba import njit
 
-from angularity_dem.contact import (
+from gonzo.contact import (
     char_length,
     contact_frame,
     overlap_area_centroid,
     polygon_overlap,
 )
-from angularity_dem.geometry import regular_polygon
+from gonzo.geometry import regular_polygon
 
 shapely = pytest.importorskip("shapely")
 

@@ -104,7 +104,7 @@ def _cmd_verify(args):
 
 
 def main(argv=None):
-    p = argparse.ArgumentParser(prog="angularity-dem")
+    p = argparse.ArgumentParser(prog="gonzo")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     pr = sub.add_parser("run", help="single biaxial simulation")

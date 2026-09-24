@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from angularity_dem.protocol import Params, run_simulation
+from gonzo.protocol import Params, run_simulation
 
 
 @pytest.mark.slow

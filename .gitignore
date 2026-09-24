@@ -13,8 +13,15 @@ wheels/
 .pytest_cache/
 .numba_cache/
 
-# Generated simulation outputs (regenerable via `angularity-dem campaign/analyze`)
+# Generated simulation outputs (regenerable via `gonzo campaign/analyze`)
 results/
 results*/
 figures/
 verification_report.txt
+
+# Never commit the (copyrighted) paper or its extracted text
+*.pdf
+paper.txt
+
+# Bench regression artifacts (regenerate with `python bench/bench.py baseline`)
+bench/*.npz

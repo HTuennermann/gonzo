@@ -1,10 +1,10 @@
 [project]
-name = "angularity-dem"
+name = "gonzo"
 version = "0.1.0"
-description = "Add your description here"
+description = "2D polygon discrete-element study of particle angularity in granular shear (reproduction of Krengel, Chen & Kikumoto 2023, Comput. Geotech. 164:105812)"
 readme = "README.md"
 authors = [
-    { name = "tuennerh", email = "henrik.tuennermann@gmail.com" }
+    { name = "Henrik Tuennermann", email = "henrik.tuennermann@gmail.com" }
 ]
 requires-python = ">=3.12"
 dependencies = [
@@ -14,8 +14,11 @@ dependencies = [
     "scipy>=1.11",
 ]
 
+[project.urls]
+Repository = "https://github.com/HTuennermann/gonzo"
+
 [project.scripts]
-angularity-dem = "angularity_dem:main"
+gonzo = "gonzo:main"
 
 [build-system]
 requires = ["hatchling"]
