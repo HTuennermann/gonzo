@@ -1,0 +1,28 @@
+[project]
+name = "angularity-dem"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "tuennerh", email = "henrik.tuennermann@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.8",
+    "numba>=0.61",
+    "numpy>=1.26",
+    "scipy>=1.11",
+]
+
+[project.scripts]
+angularity-dem = "angularity_dem:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "shapely>=2.0",
+]
